@@ -4,8 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:gallery_saver/gallery_saver.dart';
 
 void main() {
-
-  WidgetsFlutterBinding.ensureInitialized();
+  TestWidgetsFlutterBinding.ensureInitialized();
 
   const MethodChannel channel = MethodChannel('gallery_saver');
 
@@ -31,5 +30,30 @@ void main() {
 
   test('save video', () async {
     expect(await GallerySaver.saveVideo('/storage/emulated/video.mov'), false);
+  });
+
+  test(
+      '#getFileNameFromUri should correctly determine the filename from '
+      'the given URI', () {
+    expect(
+      GallerySaver.getFileNameFromUri(
+        Uri.parse('https://my-fake-origin.com/file.mp4'),
+      ),
+      'file.mp4',
+    );
+
+    expect(
+      GallerySaver.getFileNameFromUri(
+        Uri.parse('https://my-fake-origin.com/foo/bar/file.mp4'),
+      ),
+      'file.mp4',
+    );
+
+    expect(
+      GallerySaver.getFileNameFromUri(
+        Uri.parse('https://my-fake-origin.com/foo/bar/file.mp4?param1=value1&param2=value2'),
+      ),
+      'file.mp4',
+    );
   });
 }

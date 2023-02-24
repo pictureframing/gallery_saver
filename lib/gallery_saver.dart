@@ -1,11 +1,12 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:gallery_saver/files.dart';
 import 'package:http/http.dart' as http;
-import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart';
+import 'package:path_provider/path_provider.dart';
 
 class GallerySaver {
   static const String channelName = 'gallery_saver';
@@ -75,21 +76,29 @@ class GallerySaver {
     return result;
   }
 
-  static Future<File> _downloadFile(String url,
-      {Map<String, String>? headers}) async {
+  static Future<File> _downloadFile(String url, {Map<String, String>? headers}) async {
     print(url);
     print(headers);
     http.Client _client = new http.Client();
-    var req = await _client.get(Uri.parse(url), headers: headers);
+    final uri = Uri.parse(url);
+
+    var req = await _client.get(uri, headers: headers);
     if (req.statusCode >= 400) {
       throw HttpException(req.statusCode.toString());
     }
     var bytes = req.bodyBytes;
+    String fileName = getFileNameFromUri(uri);
     String dir = (await getTemporaryDirectory()).path;
-    File file = new File('$dir/${basename(url)}');
+    File file = new File('$dir/$fileName');
     await file.writeAsBytes(bytes);
     print('File size:${await file.length()}');
     print(file.path);
     return file;
+  }
+
+  @visibleForTesting
+  static getFileNameFromUri(final Uri uri) {
+    String fileName = basename(uri.path);
+    return fileName;
   }
 }
