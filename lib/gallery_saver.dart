@@ -16,6 +16,8 @@ class GallerySaver {
   static const String pleaseProvidePath = 'Please provide valid file path.';
   static const String fileIsNotVideo = 'File on path is not a video.';
   static const String fileIsNotImage = 'File on path is not an image.';
+  static const String failedToParseFileName =
+      'Failed to determine the file’s file-name. File on path is not an image or video.';
   static const MethodChannel _channel = const MethodChannel(channelName);
 
   ///saves video from provided temp path and optional album name in gallery
@@ -29,13 +31,17 @@ class GallerySaver {
     if (path.isEmpty) {
       throw ArgumentError(pleaseProvidePath);
     }
-    if (!isVideo(path)) {
+
+    /// Expect local files to consist of a valid videofile-extension.
+    if (isLocalFilePath(path) && !isVideo(path)) {
       throw ArgumentError(fileIsNotVideo);
     }
+
     if (!isLocalFilePath(path)) {
       tempFile = await _downloadFile(path, headers: headers);
       path = tempFile.path;
     }
+
     bool? result = await _channel.invokeMethod(
       methodSaveVideo,
       <String, dynamic>{'path': path, 'albumName': albumName, 'toDcim': toDcim},
@@ -57,9 +63,11 @@ class GallerySaver {
     if (path.isEmpty) {
       throw ArgumentError(pleaseProvidePath);
     }
-    if (!isImage(path)) {
+
+    if (isLocalFilePath(path) && !isImage(path)) {
       throw ArgumentError(fileIsNotImage);
     }
+
     if (!isLocalFilePath(path)) {
       tempFile = await _downloadFile(path, headers: headers);
       path = tempFile.path;
@@ -86,8 +94,13 @@ class GallerySaver {
     if (req.statusCode >= 400) {
       throw HttpException(req.statusCode.toString());
     }
+
     var bytes = req.bodyBytes;
-    String fileName = getFileNameFromUri(uri);
+    String fileName = getFileNameFromUri(
+      uri: uri,
+      response: req,
+    );
+
     String dir = (await getTemporaryDirectory()).path;
     File file = new File('$dir/$fileName');
     await file.writeAsBytes(bytes);
@@ -97,8 +110,24 @@ class GallerySaver {
   }
 
   @visibleForTesting
-  static getFileNameFromUri(final Uri uri) {
+  static getFileNameFromUri({
+    required Uri uri,
+    required http.Response response,
+  }) {
     String fileName = basename(uri.path);
-    return fileName;
+
+    /// Return the fileName if it already consists of a valid image- or video-
+    /// file-extension.
+    if (isVideo(fileName) || isImage(fileName)) {
+      return fileName;
+    }
+
+    // Append the fileExtensionFromContentType to the fileName and return the result.
+    final fileExtensionFromContentType = '.${response.headers['content-type']?.split('/')[1]}';
+    if (isVideo(fileExtensionFromContentType) || isImage(fileExtensionFromContentType)) {
+      return '$fileName$fileExtensionFromContentType';
+    }
+
+    throw ArgumentError(failedToParseFileName);
   }
 }
